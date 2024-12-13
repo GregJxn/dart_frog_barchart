@@ -59,11 +59,11 @@ Response onRequest(RequestContext context) {
     height=1000;
   }
 
-  if(width<1) {
+  if(width<16) {
     width = 322;
   }
 
-  if(height<1) {
+  if(height<16) {
     height = 162;
   }
 
