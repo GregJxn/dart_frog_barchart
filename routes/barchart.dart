@@ -41,13 +41,30 @@ Response onRequest(RequestContext context) {
   final zoneData = <ZoneData>[];
 
    // parse parameterss
-  final width = int.parse(parameters['width']??'322');
-  final height = int.parse(parameters['height']??'162');
+  var width = int.parse(parameters['width']??'322');
+  var height = int.parse(parameters['height']??'162');
   final zoneCount = int.parse(parameters['zones']??'0');
   final palette = int.parse(parameters['palette']??'0');
    
   if(zoneCount==0) {
     return Response(body: 'No zone data found');
+  }
+
+  // hard limits on image width/height
+  if(width>2000) {
+    width=2000;
+  }
+
+  if(height>2000) {
+    height=2000;
+  }
+
+  if(width<1) {
+    width = 322;
+  }
+
+  if(height<1) {
+    height = 162;
   }
 
   // asseble the zone data
