@@ -28,6 +28,7 @@ class BarChartData {
 
 
 final palettes = <List<String>> [
+  <String> [ 'A2AAAD', '000001', 'DB0A58', 'FF671F', '87189D' ],
   <String> [ 'BF1A2F', 'F00699', '454E9E', '018E42', 'F7D002' ],
   <String> [ '0C0A3E', '7B1E7A', 'B33F62', 'F9564F', 'F3C677' ],
 ];
