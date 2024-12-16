@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dart_frog/dart_frog.dart';
@@ -23,7 +24,6 @@ class BarChartData {
   int height = 0;
   int zoneCount = 0;
   List<ZoneData>? zones = [];
-  
 }
 
 
@@ -33,7 +33,7 @@ final palettes = <List<String>> [
   <String> [ '0C0A3E', '7B1E7A', 'B33F62', 'F9564F', 'F3C677' ],
 ];
 
-Response onRequest(RequestContext context) {
+Future<Response> onRequest(RequestContext context) async {
 
   final request = context.request;
   final parameters = request.uri.queryParameters;
@@ -45,9 +45,13 @@ Response onRequest(RequestContext context) {
   var height = int.parse(parameters['height']??'162');
   final zoneCount = int.parse(parameters['zones']??'0');
   final palette = int.parse(parameters['palette']??'0');
+  final showLabels = int.parse(parameters['show_labels']??'0');
    
   if(zoneCount==0) {
-    return Response(body: 'No zone data found');
+    return Response(
+      statusCode: 422,
+      body: 'No zone data found'
+    );
   }
 
   // hard limits on image width/height
@@ -90,8 +94,16 @@ Response onRequest(RequestContext context) {
     zones: zoneData,
   );
 
-  
-  final imageData = getGraphImageBytes(graphData);
+  Uint8List imageData;
+  img.Image image;
+
+  if(showLabels==0) {
+    image = await getGraphImageBytes(graphData);
+  } else {
+    image = await getLabelledGraphImageBytes(graphData);
+  }
+
+  imageData = img.encodePng(image);
 
   return Response.bytes(
     body: imageData, 
@@ -100,9 +112,91 @@ Response onRequest(RequestContext context) {
     },);
 }
 
+Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
+  // bar chart values
+  const columnPadding = 20;
+  
+
+  final fontZipFile = await File('fonts/Roboto-Medium-32px.ttf.zip').readAsBytes();
+  final font = img.BitmapFont.fromZip(fontZipFile);
+
+  final requestedHeight = graphData.height;
+  final requestedWidth = graphData.width;
+
+  final optimalBuildWidth = 800; // based on BmpFont
+
+  final labelHeaderHeight = 66;
+  final labelHeaderWidth = 244;
+  final labelFooterHeight = 8+32+35+32;
+  final labelFooterWidth = 400;
+
+  int buildHeight = requestedHeight;
+  int buildWidth = requestedWidth;
+
+  var sizeFactor = 0.0;
+  if(buildWidth<optimalBuildWidth) {
+    sizeFactor = optimalBuildWidth/requestedWidth;
+    buildWidth = optimalBuildWidth;
+    buildHeight = (buildHeight * sizeFactor).toInt();
+  }
+
+  final columnWidth = (buildWidth-columnPadding*2)/graphData.zoneCount;
+
+  final image = img.Image(
+    width: buildWidth, 
+    height: buildHeight,
+    numChannels: 4,
+  );
+
+  img.fill(image, color:img.ColorRgba8(255, 255, 255, 0)); // transparent background
+  
+  graphData.width = buildWidth;
+  graphData.height = buildHeight - (labelHeaderHeight+labelFooterHeight);
+
+  img.Image chartImage;
+  
+  chartImage = await getGraphImageBytes(graphData);
+
+  img.compositeImage(image, chartImage, dstX: 0, dstY: labelHeaderHeight);
+
+  var columnCounter = 0;
+  for(final zone in graphData.zones!) {
+    
+    final time = DateTime(0,0,0,0,0,zone.value);
+    String displayTime = "${time.minute.toString().padLeft(2,'0')}:${time.second.toString().padLeft(2,'0')}";
+
+    img.drawString(image, displayTime, font: font, 
+      x: (20+(columnWidth/2)+(columnCounter*columnWidth)-45).toInt(), 
+      y: buildHeight+8-labelFooterHeight,
+    );
+
+    columnCounter++;
+  }
+
+  img.drawString(image, 'ZONE SUMMARY', font: font, 
+    x: ((graphData.width-labelHeaderWidth)/2).round(), 
+    y: 0,
+  );
+
+  img.drawString(image, 'TIME SPENT IN EACH ZONE', font: font, 
+    x: ((graphData.width-labelFooterWidth)/2).round(), 
+    y: buildHeight-32,
+  );
+
+  if(buildWidth!=requestedWidth) {
+    // return img.copyResize(image, 
+    //   width: requestedWidth, 
+    //   height: requestedHeight, 
+    //   interpolation: img.Interpolation.average, // handles fonts better
+    // );
+  }
+
+  return image;
+}
 
 
-Uint8List getGraphImageBytes(BarChartData graphData) {
+
+Future<img.Image> getGraphImageBytes(BarChartData graphData) async {
   // bar chart values
   const columnPadding = 20;
   const baselineHeight = 2;
@@ -164,5 +258,5 @@ Uint8List getGraphImageBytes(BarChartData graphData) {
     thickness: baselineHeight,
   );
 
-  return img.encodePng(image);
+  return image;
 }
