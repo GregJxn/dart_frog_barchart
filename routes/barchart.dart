@@ -115,30 +115,46 @@ Future<Response> onRequest(RequestContext context) async {
 Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
   // bar chart values
   const columnPadding = 20;
-  
-
-  final fontZipFile = await File('fonts/Roboto-Medium-32px.ttf.zip').readAsBytes();
-  final font = img.BitmapFont.fromZip(fontZipFile);
-
   final requestedHeight = graphData.height;
   final requestedWidth = graphData.width;
 
-  final optimalBuildWidth = 800; // based on BmpFont
+  final largeBuildWidth = 800;
+  final mediumBuildWidth = 322; // based on BmpFont
 
-  final labelHeaderHeight = 66;
-  final labelHeaderWidth = 244;
-  final labelFooterHeight = 8+32+35+32;
-  final labelFooterWidth = 400;
+  var fontFilename = 'fonts/Roboto-Medium-32px.ttf.zip';
+
+  var fontHeight = 32;
+  int labelHeaderWidth = 244;
+  int labelFooterWidth = 400;
+  int labelTimeWidth = 45;
 
   int buildHeight = requestedHeight;
   int buildWidth = requestedWidth;
 
-  var sizeFactor = 0.0;
-  if(buildWidth<optimalBuildWidth) {
-    sizeFactor = optimalBuildWidth/requestedWidth;
-    buildWidth = optimalBuildWidth;
+  var sizeFactor = 1.0;
+  if(requestedWidth<=largeBuildWidth) {
+    sizeFactor = largeBuildWidth/requestedWidth;
+    buildWidth = largeBuildWidth;
     buildHeight = (buildHeight * sizeFactor).toInt();
   }
+
+  if(requestedWidth<=mediumBuildWidth) {
+    fontHeight = 16;
+    fontFilename = 'fonts/Roboto-Medium-16px.ttf.zip';
+    labelHeaderWidth = labelHeaderWidth~/2;
+    labelFooterWidth = labelFooterWidth~/2;
+    labelTimeWidth = labelTimeWidth~/2;
+    sizeFactor = mediumBuildWidth/requestedWidth;
+    buildWidth = mediumBuildWidth;
+    buildHeight = (requestedWidth * sizeFactor).toInt();
+  }
+
+
+  int labelHeaderHeight = fontHeight*2;
+  int labelFooterHeight = fontHeight*3;
+
+  final fontZipFile = await File(fontFilename).readAsBytes();
+  final font = img.BitmapFont.fromZip(fontZipFile);
 
   final columnWidth = (buildWidth-columnPadding*2)/graphData.zoneCount;
 
@@ -153,9 +169,7 @@ Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
   graphData.width = buildWidth;
   graphData.height = buildHeight - (labelHeaderHeight+labelFooterHeight);
 
-  img.Image chartImage;
-  
-  chartImage = await getGraphImageBytes(graphData);
+  final chartImage = await getGraphImageBytes(graphData);
 
   img.compositeImage(image, chartImage, dstX: 0, dstY: labelHeaderHeight);
 
@@ -166,7 +180,8 @@ Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
     String displayTime = "${time.minute.toString().padLeft(2,'0')}:${time.second.toString().padLeft(2,'0')}";
 
     img.drawString(image, displayTime, font: font, 
-      x: (20+(columnWidth/2)+(columnCounter*columnWidth)-45).toInt(), 
+      x: (20+(columnWidth/2)+(columnCounter*columnWidth)
+            -labelTimeWidth).toInt(),
       y: buildHeight+8-labelFooterHeight,
     );
 
@@ -180,15 +195,15 @@ Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
 
   img.drawString(image, 'TIME SPENT IN EACH ZONE', font: font, 
     x: ((graphData.width-labelFooterWidth)/2).round(), 
-    y: buildHeight-32,
+    y: buildHeight-fontHeight,
   );
 
   if(buildWidth!=requestedWidth) {
-    // return img.copyResize(image, 
-    //   width: requestedWidth, 
-    //   height: requestedHeight, 
-    //   interpolation: img.Interpolation.average, // handles fonts better
-    // );
+    return img.copyResize(image, 
+      width: requestedWidth, 
+      height: requestedHeight, 
+      interpolation: img.Interpolation.cubic, // handles fonts better
+    );
   }
 
   return image;
