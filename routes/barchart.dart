@@ -38,6 +38,9 @@ Future<Response> onRequest(RequestContext context) async {
   final request = context.request;
   final parameters = request.uri.queryParameters;
 
+  const minWidthForLabels = 300;
+  const minHeightForLabels = 150;
+
   final zoneData = <ZoneData>[];
 
    // parse parameterss
@@ -55,21 +58,10 @@ Future<Response> onRequest(RequestContext context) async {
   }
 
   // hard limits on image width/height
-  if(width>2000) {
-    width=2000;
-  }
-
-  if(height>1000) {
-    height=1000;
-  }
-
-  if(width<16) {
-    width = 322;
-  }
-
-  if(height<16) {
-    height = 162;
-  }
+  width  = (width>2000) ? 2000 : width;
+  height = (height>1000) ? 1000 : height;
+  width  = (width<32) ? 322 : width;
+  height = (height<32) ? 162 : height;
 
   // asseble the zone data
   for (var i = 0; i < zoneCount; i++) {
@@ -97,7 +89,7 @@ Future<Response> onRequest(RequestContext context) async {
   Uint8List imageData;
   img.Image image;
 
-  if(showLabels==0) {
+  if(showLabels==0 || width<minWidthForLabels || height<minHeightForLabels) {
     image = await getGraphImageBytes(graphData);
   } else {
     image = await getLabelledGraphImageBytes(graphData);
@@ -118,40 +110,29 @@ Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
   final requestedHeight = graphData.height;
   final requestedWidth = graphData.width;
 
-  final largeBuildWidth = 800;
-  final mediumBuildWidth = 322; // based on BmpFont
+  const fontBreakpointWidth = 640;
+  const fontBreakpointHeight = 250;
 
   var fontFilename = 'fonts/Roboto-Medium-32px.ttf.zip';
-
   var fontHeight = 32;
-  int labelHeaderWidth = 244;
-  int labelFooterWidth = 400;
-  int labelTimeWidth = 45;
 
-  int buildHeight = requestedHeight;
-  int buildWidth = requestedWidth;
+  var labelHeaderWidth = 244;
+  var labelFooterWidth = 400;
+  var labelTimeWidth = 45;
+  final buildHeight = requestedHeight;
+  final buildWidth = requestedWidth;
 
-  var sizeFactor = 1.0;
-  if(requestedWidth<=largeBuildWidth) {
-    sizeFactor = largeBuildWidth/requestedWidth;
-    buildWidth = largeBuildWidth;
-    buildHeight = (buildHeight * sizeFactor).toInt();
-  }
-
-  if(requestedWidth<=mediumBuildWidth) {
+  if(requestedWidth<=fontBreakpointWidth 
+        || requestedHeight<=fontBreakpointHeight) {
     fontHeight = 16;
     fontFilename = 'fonts/Roboto-Medium-16px.ttf.zip';
     labelHeaderWidth = labelHeaderWidth~/2;
     labelFooterWidth = labelFooterWidth~/2;
     labelTimeWidth = labelTimeWidth~/2;
-    sizeFactor = mediumBuildWidth/requestedWidth;
-    buildWidth = mediumBuildWidth;
-    buildHeight = (requestedWidth * sizeFactor).toInt();
   }
 
-
-  int labelHeaderHeight = fontHeight*2;
-  int labelFooterHeight = fontHeight*3;
+  final labelHeaderHeight = fontHeight*2;
+  final labelFooterHeight = fontHeight*3;
 
   final fontZipFile = await File(fontFilename).readAsBytes();
   final font = img.BitmapFont.fromZip(fontZipFile);
@@ -166,18 +147,17 @@ Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
 
   img.fill(image, color:img.ColorRgba8(255, 255, 255, 0)); // transparent background
   
-  graphData.width = buildWidth;
+  // set the height for the graph
   graphData.height = buildHeight - (labelHeaderHeight+labelFooterHeight);
 
   final chartImage = await getGraphImageBytes(graphData);
-
   img.compositeImage(image, chartImage, dstX: 0, dstY: labelHeaderHeight);
 
   var columnCounter = 0;
   for(final zone in graphData.zones!) {
     
     final time = DateTime(0,0,0,0,0,zone.value);
-    String displayTime = "${time.minute.toString().padLeft(2,'0')}:${time.second.toString().padLeft(2,'0')}";
+    final displayTime = "${time.minute.toString().padLeft(2,'0')}:${time.second.toString().padLeft(2,'0')}";
 
     img.drawString(image, displayTime, font: font, 
       x: (20+(columnWidth/2)+(columnCounter*columnWidth)
@@ -197,14 +177,6 @@ Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
     x: ((graphData.width-labelFooterWidth)/2).round(), 
     y: buildHeight-fontHeight,
   );
-
-  if(buildWidth!=requestedWidth) {
-    return img.copyResize(image, 
-      width: requestedWidth, 
-      height: requestedHeight, 
-      interpolation: img.Interpolation.cubic, // handles fonts better
-    );
-  }
 
   return image;
 }
