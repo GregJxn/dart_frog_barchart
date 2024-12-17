@@ -113,7 +113,7 @@ Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
   const fontBreakpointWidth = 640;
   const fontBreakpointHeight = 250;
 
-  var fontFilename = 'fonts/Roboto-Medium-32px.ttf.zip';
+  var fontFilename = 'Roboto-Medium-32px.ttf.zip';
   var fontHeight = 32;
 
   var labelHeaderWidth = 244;
@@ -125,7 +125,7 @@ Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
   if(requestedWidth<=fontBreakpointWidth 
         || requestedHeight<=fontBreakpointHeight) {
     fontHeight = 16;
-    fontFilename = 'fonts/Roboto-Medium-16px.ttf.zip';
+    fontFilename = 'Roboto-Medium-16px.ttf.zip';
     labelHeaderWidth = labelHeaderWidth~/2;
     labelFooterWidth = labelFooterWidth~/2;
     labelTimeWidth = labelTimeWidth~/2;
