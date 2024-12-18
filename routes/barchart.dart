@@ -139,8 +139,6 @@ Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
   final fontZipFile = await File(fontFilename).readAsBytes();
   final font = img.BitmapFont.fromZip(fontZipFile);
 
-  final columnWidth = (buildWidth - columnPadding * 2) / graphData.zoneCount;
-
   final image = img.Image(
     width: buildWidth,
     height: buildHeight,
@@ -156,25 +154,37 @@ Future<img.Image> getLabelledGraphImageBytes(BarChartData graphData) async {
   final chartImage = await getGraphImageBytes(graphData);
   img.compositeImage(image, chartImage, dstX: 0, dstY: labelHeaderHeight);
 
+  var zonesToShow = 0;
+  for (final zone in graphData.zones ?? <ZoneData>[]) {
+    if(zone.value > 499) {
+      zonesToShow++;
+    }
+  }
+
+  final columnWidth = (buildWidth - columnPadding * 2) / zonesToShow;
+
   var columnCounter = 0;
   for (final zone in graphData.zones!) {
-    final time = DateTime(0, 0, 0, 0, 0, zone.value);
-    final displayTime =
-        "${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}";
 
-    img.drawString(
-      image,
-      displayTime,
-      font: font,
-      x: (20 +
-              (columnWidth / 2) +
-              (columnCounter * columnWidth) -
-              labelTimeWidth)
-          .toInt(),
-      y: buildHeight + 8 - labelFooterHeight,
-    );
+    if(zone.value > 499) {
+      final time = DateTime(0, 0, 0, 0, 0, 0, zone.value+500); // rounded millisec
+      final displayTime =
+          "${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}";
 
-    columnCounter++;
+      img.drawString(
+        image,
+        displayTime,
+        font: font,
+        x: (20 +
+                (columnWidth / 2) +
+                (columnCounter * columnWidth) -
+                labelTimeWidth)
+            .toInt(),
+        y: buildHeight + 8 - labelFooterHeight,
+      );
+
+      columnCounter++;
+    }
   }
 
   img.drawString(
@@ -200,8 +210,6 @@ Future<img.Image> getGraphImageBytes(BarChartData graphData) async {
   // bar chart values
   const columnPadding = 20;
   const baselineHeight = 2;
-  final columnWidth =
-      (graphData.width - columnPadding * 2) / graphData.zoneCount;
 
   // create the image with channels for alpha support
   final image = img.Image(
@@ -215,42 +223,56 @@ Future<img.Image> getGraphImageBytes(BarChartData graphData) async {
   // img.fill(image, color:img.ColorRgba8(255, 255, 255, 255)); // or maybe white background
 
   var maxValue = 1;
+  var zonesToShow = 0;
 
   for (final zone in graphData.zones ?? <ZoneData>[]) {
     if (zone.value > maxValue) {
       maxValue = zone.value;
     }
+    if(zone.value > 499) {
+      zonesToShow++;
+    }
   }
 
+  if(zonesToShow<1) {
+    return image;
+  }
+
+  final columnWidth =
+      (graphData.width - columnPadding * 2) / zonesToShow;
   final heightFactor = (graphData.height - baselineHeight) / maxValue;
 
   var columnCounter = 0;
   for (final zone in graphData.zones!) {
-    // extract RGB code here
-    final colorText = zone.color.toString();
-    final hexColor = '0xff$colorText'; //eg "0xff4f6872";
-    final intColor = int.parse(hexColor);
-    final red = (intColor >> 16) & 0xff;
-    final green = (intColor >> 8) & 0xff;
-    final blue = (intColor >> 0) & 0xff;
 
-    // calculate the position
-    final x1 = (columnPadding + (columnWidth * columnCounter)).toInt();
-    final x2 = (x1 + columnWidth).toInt();
-    final y1 = graphData.height - baselineHeight;
-    final y2 = (y1 - (zone.value * heightFactor)).toInt();
+    if(zone.value > 499) {
 
-    img.fillRect(
-      image,
-      x1: x1,
-      y1: y1,
-      x2: x2,
-      y2: y2,
-      color: img.ColorRgba8(red, green, blue, 255),
-      alphaBlend: false,
-    );
+      // extract RGB code here
+      final colorText = zone.color.toString();
+      final hexColor = '0xff$colorText'; //eg "0xff4f6872";
+      final intColor = int.parse(hexColor);
+      final red = (intColor >> 16) & 0xff;
+      final green = (intColor >> 8) & 0xff;
+      final blue = (intColor >> 0) & 0xff;
 
-    columnCounter++;
+      // calculate the position
+      final x1 = (columnPadding + (columnWidth * columnCounter)).toInt();
+      final x2 = (x1 + columnWidth).toInt();
+      final y1 = graphData.height - baselineHeight;
+      final y2 = (y1 - (zone.value * heightFactor)).toInt();
+
+      img.fillRect(
+        image,
+        x1: x1,
+        y1: y1,
+        x2: x2,
+        y2: y2,
+        color: img.ColorRgba8(red, green, blue, 255),
+        alphaBlend: false,
+      );
+
+      columnCounter++;
+    }
   }
 
   // draw baseline last
