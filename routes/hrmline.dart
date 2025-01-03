@@ -21,7 +21,16 @@ Future<Response> onRequest(RequestContext context) async {
   // parse parameterss
   var width = int.parse(parameters['width'] ?? '322');
   var height = int.parse(parameters['height'] ?? '162');
+  
+  final zoneColors = <String>[];
+  zoneColors.add(parameters['zone1color'] ?? 'A2AAAD');
+  zoneColors.add(parameters['zone2color'] ?? '000001');
+  zoneColors.add(parameters['zone3color'] ?? 'DB0A58');
+  zoneColors.add(parameters['zone4color'] ?? 'FF671F');
+  zoneColors.add(parameters['zone5color'] ?? '87189D');
 
+  final lineColor = parameters['linecolor'] ?? 'FFFFFF';
+  
   final testDataUrl = 'http://localhost:8080/sfwd_test.json';
 
   var dataUrl = (parameters['dataUri'] ?? testDataUrl).toString();
@@ -51,14 +60,19 @@ Future<Response> onRequest(RequestContext context) async {
       color: img.ColorRgba8(224, 223, 223, 0)); 
 
   final barHeight = ((height-21)/5).toInt()+1;
-  final solidWhite = img.ColorRgba8(255, 255, 255, 255);
+
+
+  final hexColor = '0xff$lineColor'; //eg "0xff4f6872";
+  final intColor = int.parse(hexColor);
+  final red = (intColor >> 16) & 0xff;
+  final green = (intColor >> 8) & 0xff;
+  final blue = (intColor >> 0) & 0xff; 
+  final lineColorRgba8 = img.ColorRgba8(red, green, blue, 255);
 
   for (var i = 0; i < 5; i++) {
-    
-    String zoneColor = palettes[0][i % 5];
 
     // extract RGB code here
-    final colorText = zoneColor;
+    final colorText = zoneColors[i%5];
     final hexColor = '0xff$colorText'; //eg "0xff4f6872";
     final intColor = int.parse(hexColor);
     final red = (intColor >> 16) & 0xff;
@@ -85,7 +99,7 @@ Future<Response> onRequest(RequestContext context) async {
       img.fillRect(
         image,
         x1: 10, y1: y1, x2: 20, y2: y1-1,
-        color: solidWhite,
+        color: lineColorRgba8,
         alphaBlend: false,
       );
     }
@@ -97,7 +111,7 @@ Future<Response> onRequest(RequestContext context) async {
     image,
     x1: 20, y1: 0,
     x2: 20, y2: height-21,
-    color: solidWhite,
+    color: lineColorRgba8,
     thickness: 2,
   );
 
@@ -107,7 +121,7 @@ Future<Response> onRequest(RequestContext context) async {
     image,
     x1: 19, y1: height-20,
     x2: width, y2: height-20,
-    color: solidWhite,
+    color: lineColorRgba8,
     thickness: 2,
   );
   // draw bottom margin markers ? 
@@ -155,7 +169,7 @@ Future<Response> onRequest(RequestContext context) async {
     image,
       x1: x1, y1: y1,
       x2: prevX, y2: prevY,
-      color: solidWhite,
+      color: lineColorRgba8,
       thickness: 2,
     );
 
