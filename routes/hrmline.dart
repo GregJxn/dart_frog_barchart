@@ -149,16 +149,33 @@ Future<Response> onRequest(RequestContext context) async {
     }   
   }
 
+  // set a reasonable display range to handle widespread values
   final bpmRange = maxValue - minValue;
+  var graphPeak = ((maxValue~/10)+1)*10;
+  var graphLow = (minValue~/10)*10;
+  graphPeak = (maxValue > graphPeak) ? maxValue : graphPeak;
+  graphLow = (minValue < graphLow) ? minValue : graphLow;
+  var graphRange = graphPeak - graphLow;
+  // skew the results for any
+  if(graphRange<35){
+    if(graphLow>70){
+      graphLow=70;
+    } else {
+      if(graphPeak<120) {
+        graphPeak=120;
+      }
+    }
+    graphRange = graphPeak - graphLow;
+  }
 
-  final graphStepHeight = ((height-42)/bpmRange).toInt();
+  final graphStepHeight = ((height-42)/graphRange).toInt();
 
   var prevX = 0;
   var prevY = 0;
   for (var i = 0; i < datapointCount; i++) {
     final bpm = int.parse((datapoints[i]['bpm'] ?? 0).toString());
     final x1 = 21+(i*graphStepWidth).toInt();
-    final y1 =  (height-32) - ((bpm-minValue)*graphStepHeight);
+    final y1 =  (height-32) - ((bpm-graphLow)*graphStepHeight);
 
     if(i==0) {
       prevX = x1;
